@@ -1,0 +1,32 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+
+# Android
+.gradle/
+local.properties
+**/GeneratedPluginRegistrant.java
+*.keystore
+*.jks
+*.properties
+android/app/src/main/res/raw/google_services.json
+
+# IDE
+.idea/
+*.iml
+*.iws
+.vscode/
+
+# Node/Docker
+node_modules/
+.dockerignore
+Dockerfile
+
+# Project Specific
+bin/server (binary)
+new.sh
