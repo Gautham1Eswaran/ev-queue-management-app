@@ -3,43 +3,35 @@ FROM dart:stable AS build
 
 WORKDIR /app
 
-# 2. Copy only the files needed for dependencies
-COPY pubspec.yaml ./
+# 2. Create a clean, server-only pubspec.yaml inside the container
+# This avoids any conflicts with Flutter dependencies
+RUN echo "name: ev_a_server" > pubspec.yaml && \
+    echo "environment:" >> pubspec.yaml && \
+    echo "  sdk: '>=3.0.0 <4.0.0'" >> pubspec.yaml && \
+    echo "dependencies:" >> pubspec.yaml && \
+    echo "  shelf: ^1.4.1" >> pubspec.yaml && \
+    echo "  shelf_router: ^1.1.2" >> pubspec.yaml && \
+    echo "  shelf_cors_headers: ^0.1.5" >> pubspec.yaml && \
+    echo "  mongo_dart: ^0.8.1" >> pubspec.yaml && \
+    echo "  crypto: ^3.0.3" >> pubspec.yaml
 
-# 3. Create a temporary 'dummy' lib/main.dart so pub get doesn't complain about Flutter
-# and remove Flutter-only dependencies from the build-time pubspec
-RUN sed -i \
-    -e '/flutter:/d' \
-    -e '/sdk: flutter/d' \
-    -e '/google_fonts:/d' \
-    -e '/fl_chart:/d' \
-    -e '/provider:/d' \
-    -e '/logger:/d' \
-    -e '/intl:/d' \
-    -e '/shared_preferences:/d' \
-    -e '/flutter_test:/d' \
-    -e '/lints:/d' \
-    -e '/flutter_launcher_icons:/d' \
-    pubspec.yaml && \
-    mkdir lib && touch lib/main.dart
+# 3. Download the backend-only dependencies
+RUN dart pub get
 
-# 4. Install only the backend dependencies (shelf, mongo_dart, etc.)
-RUN dart pub get --no-precompile
-
-# 5. Copy the rest of the server code
+# 4. Copy the server source code
 COPY bin/ bin/
 
-# 6. Compile the server into a standalone executable
+# 5. Compile the server into a standalone binary
 RUN dart compile exe bin/server.dart -o bin/server
 
-# 7. Use a tiny runtime image for the final container
+# 6. Use a minimal runtime image
 FROM scratch
 COPY --from=build /runtime/ /
 COPY --from=build /app/bin/server /app/bin/
 
-# 8. Set up the environment
+# 7. Set up the environment (Render uses PORT env var)
 EXPOSE 3001
 ENV PORT=3001
 
-# 9. Start the server
+# 8. Run the server
 CMD ["/app/bin/server"]
