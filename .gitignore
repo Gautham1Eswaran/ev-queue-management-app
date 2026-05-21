@@ -25,7 +25,6 @@ android/app/src/main/res/raw/google_services.json
 # Node/Docker
 node_modules/
 .dockerignore
-Dockerfile
 
 # Project Specific
 bin/server (binary)
