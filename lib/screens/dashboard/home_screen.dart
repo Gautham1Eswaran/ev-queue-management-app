@@ -21,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final homeProvider = context.watch<HomeProvider>();
     final isDark = context.watch<ThemeProvider>().isDarkMode;
 
     return Scaffold(
@@ -32,26 +33,26 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
       ),
       body: RefreshIndicator(
-        onRefresh: () => context.read<HomeProvider>().fetchData(),
+        onRefresh: () => homeProvider.fetchData(),
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSectionHeader('CURRENTLY CHARGING'),
-              ActiveChargingCard(isDark: isDark),
+              const ActiveChargingCard(),
               const SizedBox(height: 32),
               _buildSectionHeader('QUEUE'),
-              QueueCard(isDark: isDark),
+              const QueueCard(),
               const SizedBox(height: 32),
-              EstimatorCard(isDark: isDark),
-              const SizedBox(height: 100), // Space for FAB
+              const EstimatorCard(),
+              const SizedBox(height: 120), // Space for buttons
             ],
           ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: const StartChargingButton(),
+      floatingActionButton: const DashboardActions(),
     );
   }
 
@@ -72,12 +73,13 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class ActiveChargingCard extends StatelessWidget {
-  final bool isDark;
-  const ActiveChargingCard({super.key, required this.isDark});
+  const ActiveChargingCard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<HomeProvider>().activeSession;
+    final provider = context.watch<HomeProvider>();
+    final session = provider.activeSession;
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
     
     return Container(
       width: double.infinity,
@@ -87,27 +89,45 @@ class ActiveChargingCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
       ),
-      child: Center(
-        child: Text(
-          session == null ? 'No currently charging' : 'Charging: ${session.carModel}',
-          style: TextStyle(
-            color: session == null ? (isDark ? Colors.grey[400] : Colors.grey[600]) : (isDark ? Colors.white : Colors.black),
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+      child: session == null 
+        ? Center(child: Text('No currently charging', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 16)))
+        : Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(session.carModel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      Text('By ${session.userName}', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                    ],
+                  ),
+                  Text(provider.liveRemainingTime, style: const TextStyle(color: Color(0xFF2DBE44), fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              LinearProgressIndicator(
+                value: provider.liveProgress,
+                backgroundColor: isDark ? Colors.grey[800] : Colors.grey[100],
+                color: const Color(0xFF2DBE44),
+                minHeight: 8,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ],
           ),
-        ),
-      ),
     );
   }
 }
 
 class QueueCard extends StatelessWidget {
-  final bool isDark;
-  const QueueCard({super.key, required this.isDark});
+  const QueueCard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final queue = context.watch<HomeProvider>().queue;
+    final provider = context.watch<HomeProvider>();
+    final queue = provider.queue;
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
     
     return Container(
       width: double.infinity,
@@ -117,23 +137,80 @@ class QueueCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
       ),
-      child: Center(
-        child: Text(
-          queue.isEmpty ? 'Free to go' : '${queue.length} in queue',
-          style: TextStyle(
-            color: queue.isEmpty ? (isDark ? Colors.grey[400] : Colors.grey[600]) : (isDark ? Colors.white : Colors.black),
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+      child: queue.isEmpty 
+        ? Center(child: Text('Free to go', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 16)))
+        : Column(
+            children: queue.map((entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  CircleAvatar(radius: 12, backgroundColor: const Color(0xFF2DBE44).withAlpha(40), child: Text('${entry.position}', style: const TextStyle(fontSize: 10, color: Color(0xFF2DBE44)))),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(entry.userName, style: const TextStyle(fontWeight: FontWeight.w500))),
+                  Text('~${entry.estimatedWaitMinutes}m', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                ],
+              ),
+            )).toList(),
           ),
-        ),
+    );
+  }
+}
+
+class DashboardActions extends StatelessWidget {
+  const DashboardActions({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<HomeProvider>();
+    final isCharging = provider.activeSession != null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 56,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  if (isCharging) {
+                    provider.stopCharging();
+                  } else {
+                    provider.startCharging();
+                  }
+                },
+                icon: Icon(isCharging ? Icons.stop_rounded : Icons.bolt_rounded),
+                label: Text(isCharging ? 'Stop Charging' : 'Start Charging', style: const TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isCharging ? Colors.redAccent : const Color(0xFF2DBE44),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            height: 56,
+            child: OutlinedButton.icon(
+              onPressed: () => provider.toggleQueue(),
+              icon: Icon(provider.userInQueue ? Icons.exit_to_app : Icons.people_outline),
+              label: Text(provider.userInQueue ? 'Leave' : 'Join Queue'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: provider.userInQueue ? Colors.orange : const Color(0xFF2DBE44),
+                side: BorderSide(color: provider.userInQueue ? Colors.orange : const Color(0xFF2DBE44)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class EstimatorCard extends StatefulWidget {
-  final bool isDark;
-  const EstimatorCard({super.key, required this.isDark});
+  const EstimatorCard({super.key});
 
   @override
   State<EstimatorCard> createState() => _EstimatorCardState();
@@ -163,12 +240,13 @@ class _EstimatorCardState extends State<EstimatorCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: widget.isDark ? Colors.grey[900] : Colors.white,
+        color: isDark ? Colors.grey[900] : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: widget.isDark ? Colors.white10 : Colors.grey[200]!),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,24 +255,24 @@ class _EstimatorCardState extends State<EstimatorCard> {
             children: [
               const Icon(Icons.bolt_rounded, color: Color(0xFF2DBE44), size: 28),
               const SizedBox(width: 8),
-              Text('Charging Estimator', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: widget.isDark ? Colors.white : Colors.black)),
+              Text('Charging Estimator', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black)),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             'Estimate charging time and cost for your session.',
-            style: TextStyle(color: widget.isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
+            style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
           ),
           const SizedBox(height: 24),
           Row(
             children: [
-              Expanded(child: _buildInput('Battery (kWh)', _batteryController)),
+              Expanded(child: _buildInput('Battery (kWh)', _batteryController, isDark)),
               const SizedBox(width: 16),
-              Expanded(child: _buildInput('Charger (kW)', _chargerController)),
+              Expanded(child: _buildInput('Charger (kW)', _chargerController, isDark)),
             ],
           ),
           const SizedBox(height: 24),
-          _buildSliderLabel('Current Charge', _currentCharge.toInt()),
+          _buildSliderLabel('Current Charge', _currentCharge.toInt(), isDark),
           Slider(
             value: _currentCharge,
             onChanged: (v) => setState(() {
@@ -205,7 +283,7 @@ class _EstimatorCardState extends State<EstimatorCard> {
             activeColor: const Color(0xFF2DBE44),
           ),
           const SizedBox(height: 12),
-          _buildSliderLabel('Desired Charge', _desiredCharge.toInt()),
+          _buildSliderLabel('Desired Charge', _desiredCharge.toInt(), isDark),
           Slider(
             value: _desiredCharge,
             onChanged: (v) => setState(() {
@@ -216,7 +294,7 @@ class _EstimatorCardState extends State<EstimatorCard> {
             activeColor: const Color(0xFF2DBE44),
           ),
           const SizedBox(height: 20),
-          _buildInput('Cost per kWh (₹)', _costController),
+          _buildInput('Cost per kWh (₹)', _costController, isDark),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
@@ -232,17 +310,16 @@ class _EstimatorCardState extends State<EstimatorCard> {
               child: const Text('Get Estimate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),
-          if (_results != null) _buildResultCard(),
+          if (_results != null) _buildResultCard(isDark),
         ],
       ),
     );
   }
 
-  Widget _buildResultCard() {
+  Widget _buildResultCard(bool isDark) {
     final timeHours = _results!['timeHours'] as double;
     final energyKwh = _results!['energyKwh'] as double;
     final cost = _results!['cost'] as double;
-
     final hours = timeHours.toInt();
     final minutes = ((timeHours - hours) * 60).toInt();
 
@@ -251,68 +328,48 @@ class _EstimatorCardState extends State<EstimatorCard> {
       padding: const EdgeInsets.all(24),
       width: double.infinity,
       decoration: BoxDecoration(
-        color: widget.isDark ? const Color(0xFF141B12) : const Color(0xFFF1F8F1),
+        color: isDark ? const Color(0xFF141B12) : const Color(0xFFF1F8F1),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF2DBE44).withAlpha(40)),
       ),
       child: Column(
         children: [
-          const Text(
-            'Estimated Results',
-            style: TextStyle(
-              color: Color(0xFF2DBE44),
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
+          const Text('Estimated Results', style: TextStyle(color: Color(0xFF2DBE44), fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 24),
-          _buildResultItem(Icons.access_time_rounded, '${hours}h ${minutes}min', 'Time'),
+          _buildResultItem(Icons.access_time_rounded, '${hours}h ${minutes}min', 'Time', isDark),
           const SizedBox(height: 24),
-          _buildResultItem(Icons.battery_charging_full_rounded, '${energyKwh.toStringAsFixed(1)} kWh', 'Energy'),
+          _buildResultItem(Icons.battery_charging_full_rounded, '${energyKwh.toStringAsFixed(1)} kWh', 'Energy', isDark),
           const SizedBox(height: 24),
-          _buildResultItem(Icons.currency_rupee_rounded, cost.toStringAsFixed(2), 'Cost'),
+          _buildResultItem(Icons.currency_rupee_rounded, cost.toStringAsFixed(2), 'Cost', isDark),
         ],
       ),
     );
   }
 
-  Widget _buildResultItem(IconData icon, String value, String label) {
+  Widget _buildResultItem(IconData icon, String value, String label, bool isDark) {
     return Column(
       children: [
         Icon(icon, color: const Color(0xFF2DBE44), size: 24),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            color: widget.isDark ? Colors.white : Colors.black87,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: widget.isDark ? Colors.grey[500] : Colors.grey[600],
-          ),
-        ),
+        Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87)),
+        Text(label, style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[500] : Colors.grey[600])),
       ],
     );
   }
 
-  Widget _buildInput(String label, TextEditingController controller) {
+  Widget _buildInput(String label, TextEditingController controller, bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: widget.isDark ? Colors.grey[300] : Colors.black)),
+        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[300] : Colors.black)),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
+          style: TextStyle(color: isDark ? Colors.white : Colors.black),
           decoration: InputDecoration(
             filled: true,
-            fillColor: widget.isDark ? Colors.grey[800] : const Color(0xFFF1F3F5),
+            fillColor: isDark ? Colors.grey[800] : const Color(0xFFF1F3F5),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
@@ -321,35 +378,10 @@ class _EstimatorCardState extends State<EstimatorCard> {
     );
   }
 
-  Widget _buildSliderLabel(String label, int value) {
+  Widget _buildSliderLabel(String label, int value, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Text('$label: $value%', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: widget.isDark ? Colors.white : Colors.black)),
-    );
-  }
-}
-
-class StartChargingButton extends StatelessWidget {
-  const StartChargingButton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      width: double.infinity,
-      height: 60,
-      child: ElevatedButton.icon(
-        onPressed: () => context.read<HomeProvider>().startCharging(),
-        icon: const Icon(Icons.bolt_rounded),
-        label: const Text('Start Charging', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF2DBE44),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          elevation: 4,
-          shadowColor: const Color(0xFF2DBE44).withAlpha(100),
-        ),
-      ),
+      child: Text('$label: $value%', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black)),
     );
   }
 }
