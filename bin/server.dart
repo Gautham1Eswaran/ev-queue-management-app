@@ -170,7 +170,6 @@ Future<Response> _estimateHandler(Request request) async {
 
 Future<Response> _startChargingHandler(Request request) async {
   try {
-    // In a real app, you'd move the user from queue to sessions
     return Response.ok(
       jsonEncode({'message': 'Charging started successfully'}),
       headers: {'Content-Type': 'application/json'},
@@ -193,9 +192,7 @@ Future<Response> _joinQueueHandler(Request request) async {
 
 Future<Response> _updateUserHandler(Request request) async {
   try {
-    // Read the payload to ensure valid JSON, though it's currently a mock update
     await request.readAsString();
-
     return Response.ok(
       jsonEncode({'message': 'Profile updated successfully'}),
       headers: {'Content-Type': 'application/json'},

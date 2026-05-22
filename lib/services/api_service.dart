@@ -4,8 +4,6 @@ import '../models/models.dart';
 import '../utils/token_manager.dart';
 
 class ApiService {
-  // Use '10.0.2.2' for Android Emulator, or your Local IP for real devices
-  // static const String baseUrl = 'http://10.0.2.2:3001'; 
   static const String baseUrl = 'https://queue-management-geva.onrender.com';
 
   Future<Map<String, String>> _getHeaders() async {
@@ -38,7 +36,6 @@ class ApiService {
     try {
       data = jsonDecode(response.body);
     } catch (e) {
-      // If server returns plain text instead of JSON
       if (response.statusCode == 404) {
         throw Exception('Server Error: Route not found (404)');
       }
@@ -52,7 +49,6 @@ class ApiService {
     }
   }
 
-  // Auth
   Future<Map<String, dynamic>> login(String username, String password) async {
     return await post('/login', {'username': username, 'password': password});
   }
@@ -61,7 +57,6 @@ class ApiService {
     return await post('/register', userData);
   }
 
-  // Dashboard Data
   Future<ChargingSession?> getActiveSession() async {
     try {
       final data = await get('/api/sessions/active');

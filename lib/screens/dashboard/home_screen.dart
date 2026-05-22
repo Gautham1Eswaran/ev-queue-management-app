@@ -46,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const QueueCard(),
               const SizedBox(height: 32),
               const EstimatorCard(),
-              const SizedBox(height: 120), // Space for buttons
+              const SizedBox(height: 120),
             ],
           ),
         ),
