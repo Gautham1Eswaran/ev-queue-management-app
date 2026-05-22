@@ -1,0 +1,1 @@
+flutter create --platforms=web .

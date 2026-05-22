@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/home_provider.dart';
+import '../../providers/theme_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,56 +20,51 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  void dispose() {
-    // Note: Provider usually handles this if defined correctly, 
-    // but we can explicitly stop if needed.
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: isDark ? null : const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('EV Charge Park', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(icon: const Icon(Icons.notifications_none), onPressed: () {}),
-        ],
+        title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: isDark ? Colors.transparent : Colors.white,
+        elevation: 0,
+        centerTitle: true,
       ),
       body: RefreshIndicator(
         onRefresh: () => context.read<HomeProvider>().fetchData(),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSectionHeader('CURRENTLY CHARGING'),
-              const ActiveChargingCard(),
-              const SizedBox(height: 24),
+              ActiveChargingCard(isDark: isDark),
+              const SizedBox(height: 32),
               _buildSectionHeader('QUEUE'),
-              const QueueList(),
-              const SizedBox(height: 24),
-              const EstimatorCard(),
-              const SizedBox(height: 80), // Space for buttons
+              QueueCard(isDark: isDark),
+              const SizedBox(height: 32),
+              EstimatorCard(isDark: isDark),
+              const SizedBox(height: 100), // Space for FAB
             ],
           ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: const ActionButtons(),
+      floatingActionButton: const StartChargingButton(),
     );
   }
 
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 12, left: 4),
       child: Text(
         title,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey[600],
-          letterSpacing: 1.2,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          color: Color(0xFF2DBE44),
+          letterSpacing: 0.5,
         ),
       ),
     );
@@ -76,186 +72,206 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class ActiveChargingCard extends StatelessWidget {
-  const ActiveChargingCard({super.key});
+  final bool isDark;
+  const ActiveChargingCard({super.key, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
     final session = context.watch<HomeProvider>().activeSession;
-    if (session == null) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Center(child: Text('No currently charging', style: TextStyle(color: Colors.grey[600]))),
-        ),
-      );
-    }
-
-    // Simple progress calc for demo
-    final total = session.estimatedEndTime!.difference(session.startTime).inSeconds;
-    final elapsed = DateTime.now().difference(session.startTime).inSeconds;
-    double progress = (elapsed / total).clamp(0.0, 1.0);
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                CircleAvatar(backgroundColor: Colors.green[100], child: const Icon(Icons.electric_car, color: Colors.green)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(session.carModel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('By ${session.userName}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                    ],
-                  ),
-                ),
-                Text('${(progress * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            LinearProgressIndicator(value: progress, backgroundColor: Colors.grey[200], borderRadius: BorderRadius.circular(4)),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Remaining', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                Text(
-                  session.estimatedEndTime!.difference(DateTime.now()).inMinutes > 0
-                      ? '${session.estimatedEndTime!.difference(DateTime.now()).inMinutes}m'
-                      : 'Done',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            )
-          ],
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[900] : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
+      ),
+      child: Center(
+        child: Text(
+          session == null ? 'No currently charging' : 'Charging: ${session.carModel}',
+          style: TextStyle(
+            color: session == null ? (isDark ? Colors.grey[400] : Colors.grey[600]) : (isDark ? Colors.white : Colors.black),
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );
   }
 }
 
-class QueueList extends StatelessWidget {
-  const QueueList({super.key});
+class QueueCard extends StatelessWidget {
+  final bool isDark;
+  const QueueCard({super.key, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
     final queue = context.watch<HomeProvider>().queue;
-    if (queue.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Text('Free to go', style: TextStyle(color: Colors.green)),
-      );
-    }
-
-    return Column(
-      children: queue.map((entry) => Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Colors.grey[200],
-            child: Text('${entry.position}', style: const TextStyle(fontSize: 12)),
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[900] : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
+      ),
+      child: Center(
+        child: Text(
+          queue.isEmpty ? 'Free to go' : '${queue.length} in queue',
+          style: TextStyle(
+            color: queue.isEmpty ? (isDark ? Colors.grey[400] : Colors.grey[600]) : (isDark ? Colors.white : Colors.black),
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
           ),
-          title: Text(entry.userName),
-          subtitle: Text(entry.carModel),
-          trailing: Text('~${entry.estimatedWaitMinutes}m', style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
-      )).toList(),
+      ),
     );
   }
 }
 
 class EstimatorCard extends StatefulWidget {
-  const EstimatorCard({super.key});
+  final bool isDark;
+  const EstimatorCard({super.key, required this.isDark});
 
   @override
   State<EstimatorCard> createState() => _EstimatorCardState();
 }
 
 class _EstimatorCardState extends State<EstimatorCard> {
+  final _batteryController = TextEditingController(text: '75');
+  final _chargerController = TextEditingController(text: '7.4');
+  final _costController = TextEditingController(text: '7');
   double _currentCharge = 20;
   double _desiredCharge = 80;
-  final _batteryController = TextEditingController(text: '75');
   
-  String? _estTime, _estEnergy, _estCost;
+  Map<String, dynamic>? _results;
 
   void _calculate() async {
     final res = await context.read<HomeProvider>().getEstimate({
       'batteryCapacity': double.tryParse(_batteryController.text) ?? 75,
       'currentCharge': _currentCharge,
       'desiredCharge': _desiredCharge,
-      'chargerPower': 11.0,
-      'costPerKwh': 7.0,
+      'chargerPower': double.tryParse(_chargerController.text) ?? 7.4,
+      'costPerKwh': double.tryParse(_costController.text) ?? 7,
     });
     setState(() {
-      _estTime = '${res['timeHours'].toStringAsFixed(1)}h';
-      _estEnergy = '${res['energyKwh'].toStringAsFixed(1)} kWh';
-      _estCost = '₹${res['cost'].toStringAsFixed(2)}';
+      _results = res;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey[200]!)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.bolt, color: Colors.green, size: 20),
-                SizedBox(width: 8),
-                Text('Charging Estimator', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ],
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: widget.isDark ? Colors.grey[900] : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: widget.isDark ? Colors.white10 : Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bolt_rounded, color: Color(0xFF2DBE44), size: 28),
+              const SizedBox(width: 8),
+              Text('Charging Estimator', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: widget.isDark ? Colors.white : Colors.black)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Estimate charging time and cost for your session.',
+            style: TextStyle(color: widget.isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(child: _buildInput('Battery (kWh)', _batteryController)),
+              const SizedBox(width: 16),
+              Expanded(child: _buildInput('Charger (kW)', _chargerController)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _buildSliderLabel('Current Charge', _currentCharge.toInt()),
+          Slider(
+            value: _currentCharge,
+            onChanged: (v) => setState(() {
+              _currentCharge = v;
+              if (_desiredCharge < _currentCharge) _desiredCharge = _currentCharge;
+            }),
+            min: 0, max: 100,
+            activeColor: const Color(0xFF2DBE44),
+          ),
+          const SizedBox(height: 12),
+          _buildSliderLabel('Desired Charge', _desiredCharge.toInt()),
+          Slider(
+            value: _desiredCharge,
+            onChanged: (v) => setState(() {
+              _desiredCharge = v;
+              if (_currentCharge > _desiredCharge) _currentCharge = _desiredCharge;
+            }),
+            min: 0, max: 100,
+            activeColor: const Color(0xFF2DBE44),
+          ),
+          const SizedBox(height: 20),
+          _buildInput('Cost per kWh (₹)', _costController),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: ElevatedButton(
+              onPressed: _calculate,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2DBE44),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Text('Get Estimate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
-            const SizedBox(height: 20),
-            const Text('Battery Capacity (kWh)', style: TextStyle(fontSize: 12)),
-            TextField(controller: _batteryController, keyboardType: TextInputType.number),
-            const SizedBox(height: 16),
-            Text('Current Charge: ${_currentCharge.toInt()}%', style: const TextStyle(fontSize: 12)),
-            Slider(
-              value: _currentCharge,
-              onChanged: (v) => setState(() {
-                _currentCharge = v;
-                if (_desiredCharge < _currentCharge) _desiredCharge = _currentCharge;
-              }),
-              min: 0, max: 100,
+          ),
+          if (_results != null) _buildResultCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultCard() {
+    final timeHours = _results!['timeHours'] as double;
+    final energyKwh = _results!['energyKwh'] as double;
+    final cost = _results!['cost'] as double;
+
+    final hours = timeHours.toInt();
+    final minutes = ((timeHours - hours) * 60).toInt();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 24),
+      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: widget.isDark ? const Color(0xFF141B12) : const Color(0xFFF1F8F1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2DBE44).withAlpha(40)),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'Estimated Results',
+            style: TextStyle(
+              color: Color(0xFF2DBE44),
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
             ),
-            Text('Desired Charge: ${_desiredCharge.toInt()}%', style: const TextStyle(fontSize: 12)),
-            Slider(
-              value: _desiredCharge,
-              onChanged: (v) => setState(() {
-                _desiredCharge = v;
-                if (_currentCharge > _desiredCharge) _currentCharge = _desiredCharge;
-              }),
-              min: 0, max: 100,
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(onPressed: _calculate, child: const Text('Get Estimate')),
-            ),
-            if (_estTime != null) ...[
-              const Divider(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildResultItem(Icons.access_time, _estTime!, 'Time'),
-                  _buildResultItem(Icons.battery_charging_full, _estEnergy!, 'Energy'),
-                  _buildResultItem(Icons.currency_rupee, _estCost!, 'Cost'),
-                ],
-              )
-            ]
-          ],
-        ),
+          ),
+          const SizedBox(height: 24),
+          _buildResultItem(Icons.access_time_rounded, '${hours}h ${minutes}min', 'Time'),
+          const SizedBox(height: 24),
+          _buildResultItem(Icons.battery_charging_full_rounded, '${energyKwh.toStringAsFixed(1)} kWh', 'Energy'),
+          const SizedBox(height: 24),
+          _buildResultItem(Icons.currency_rupee_rounded, cost.toStringAsFixed(2), 'Cost'),
+        ],
       ),
     );
   }
@@ -263,49 +279,76 @@ class _EstimatorCardState extends State<EstimatorCard> {
   Widget _buildResultItem(IconData icon, String value, String label) {
     return Column(
       children: [
-        Icon(icon, size: 20, color: Colors.grey),
+        Icon(icon, color: const Color(0xFF2DBE44), size: 24),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: widget.isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: widget.isDark ? Colors.grey[500] : Colors.grey[600],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildInput(String label, TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: widget.isDark ? Colors.grey[300] : Colors.black)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          style: TextStyle(color: widget.isDark ? Colors.white : Colors.black),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: widget.isDark ? Colors.grey[800] : const Color(0xFFF1F3F5),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSliderLabel(String label, int value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text('$label: $value%', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: widget.isDark ? Colors.white : Colors.black)),
     );
   }
 }
 
-class ActionButtons extends StatelessWidget {
-  const ActionButtons({super.key});
+class StartChargingButton extends StatelessWidget {
+  const StartChargingButton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Simplified logic for demo
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () {}, 
-              icon: const Icon(Icons.bolt), 
-              label: const Text('Start Charging'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () {}, 
-              icon: const Icon(Icons.people), 
-              label: const Text('Join Queue'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      width: double.infinity,
+      height: 60,
+      child: ElevatedButton.icon(
+        onPressed: () => context.read<HomeProvider>().startCharging(),
+        icon: const Icon(Icons.bolt_rounded),
+        label: const Text('Start Charging', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF2DBE44),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          elevation: 4,
+          shadowColor: const Color(0xFF2DBE44).withAlpha(100),
+        ),
       ),
     );
   }

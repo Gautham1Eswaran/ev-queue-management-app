@@ -168,6 +168,43 @@ Future<Response> _estimateHandler(Request request) async {
   }), headers: {'Content-Type': 'application/json'});
 }
 
+Future<Response> _startChargingHandler(Request request) async {
+  try {
+    // In a real app, you'd move the user from queue to sessions
+    return Response.ok(
+      jsonEncode({'message': 'Charging started successfully'}),
+      headers: {'Content-Type': 'application/json'},
+    );
+  } catch (e) {
+    return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+  }
+}
+
+Future<Response> _joinQueueHandler(Request request) async {
+  try {
+    return Response.ok(
+      jsonEncode({'message': 'Joined queue successfully'}),
+      headers: {'Content-Type': 'application/json'},
+    );
+  } catch (e) {
+    return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+  }
+}
+
+Future<Response> _updateUserHandler(Request request) async {
+  try {
+    // Read the payload to ensure valid JSON, though it's currently a mock update
+    await request.readAsString();
+
+    return Response.ok(
+      jsonEncode({'message': 'Profile updated successfully'}),
+      headers: {'Content-Type': 'application/json'},
+    );
+  } catch (e) {
+    return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+  }
+}
+
 final _router = Router()
   ..get('/test', (Request request) => Response.ok('Server is working!'))
   ..post('/register', _registerHandler)
@@ -175,7 +212,10 @@ final _router = Router()
   ..get('/api/sessions/active', _activeSessionHandler)
   ..get('/api/queue/status', _queueStatusHandler)
   ..post('/api/sessions/estimate', _estimateHandler)
-  ..get('/api/sessions/history', _historyHandler);
+  ..get('/api/sessions/history', _historyHandler)
+  ..post('/api/sessions/start', _startChargingHandler)
+  ..post('/api/queue/join', _joinQueueHandler)
+  ..post('/api/user/update', _updateUserHandler);
 
 Future<Response> _historyHandler(Request request) async {
   return Response.ok(jsonEncode([

@@ -54,8 +54,34 @@ class AuthProvider with ChangeNotifier {
     final isLoggedIn = await TokenManager.isLoggedIn();
     if (isLoggedIn) {
       // In a real app, you'd fetch user profile here
-      // _user = await _apiService.getProfile();
     }
     notifyListeners();
+  }
+
+  Future<void> updateUser(String username, String carModel, String parkingSlot) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await _apiService.updateProfile({
+        'username': username,
+        'carModel': carModel,
+        'parkingSlot': parkingSlot,
+      });
+      // Update local user object
+      if (_user != null) {
+        _user = User(
+          id: _user!.id,
+          username: username,
+          carModel: carModel,
+          parkingSlot: parkingSlot,
+        );
+      }
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 }

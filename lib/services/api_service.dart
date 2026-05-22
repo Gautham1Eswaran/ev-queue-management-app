@@ -4,8 +4,9 @@ import '../models/models.dart';
 import '../utils/token_manager.dart';
 
 class ApiService {
-  // Update this based on your connection method (Emulator vs Real Phone)
-  static const String baseUrl = 'http://127.0.0.1:3001'; 
+  // Use '10.0.2.2' for Android Emulator, or your Local IP for real devices
+  // static const String baseUrl = 'http://10.0.2.2:3001'; 
+  static const String baseUrl = 'https://queue-management-geva.onrender.com';
 
   Future<Map<String, String>> _getHeaders() async {
     final token = await TokenManager.getToken();
@@ -33,7 +34,17 @@ class ApiService {
   }
 
   dynamic _handleResponse(http.Response response) {
-    final data = jsonDecode(response.body);
+    dynamic data;
+    try {
+      data = jsonDecode(response.body);
+    } catch (e) {
+      // If server returns plain text instead of JSON
+      if (response.statusCode == 404) {
+        throw Exception('Server Error: Route not found (404)');
+      }
+      throw Exception('Server Error: ${response.body}');
+    }
+
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return data;
     } else {
@@ -68,5 +79,17 @@ class ApiService {
     } catch (e) {
       return [];
     }
+  }
+
+  Future<void> startCharging() async {
+    await post('/api/sessions/start', {});
+  }
+
+  Future<void> joinQueue() async {
+    await post('/api/queue/join', {});
+  }
+
+  Future<void> updateProfile(Map<String, dynamic> data) async {
+    await post('/api/user/update', data);
   }
 }

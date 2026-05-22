@@ -15,6 +15,7 @@ void main() {
     await tester.pumpWidget(const EVApp());
 
     // Verify that we are on the login page.
-    expect(find.text('Login Your Account'), findsOneWidget);
+    expect(find.text('EV Charge Park'), findsOneWidget);
+    expect(find.text('Sign In'), findsOneWidget);
   });
 }

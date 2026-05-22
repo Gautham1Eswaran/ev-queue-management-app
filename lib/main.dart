@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'providers/auth_provider.dart';
+import 'providers/home_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/main_navigation_screen.dart';
 import 'utils/token_manager.dart';
-
-import 'providers/home_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +14,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const EVApp(),
     ),
@@ -26,17 +26,12 @@ class EVApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'EV Charge Park',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2DBE44),
-          primary: const Color(0xFF2DBE44),
-        ),
-        textTheme: GoogleFonts.poppinsTextTheme(),
-      ),
+      theme: themeProvider.currentTheme,
       home: const AuthCheck(),
     );
   }

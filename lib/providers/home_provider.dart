@@ -33,4 +33,14 @@ class HomeProvider with ChangeNotifier {
   Future<Map<String, dynamic>> getEstimate(Map<String, dynamic> data) async {
     return await _apiService.post('/api/sessions/estimate', data);
   }
+
+  Future<void> startCharging() async {
+    await _apiService.startCharging();
+    await fetchData();
+  }
+
+  Future<void> joinQueue() async {
+    await _apiService.joinQueue();
+    await fetchData();
+  }
 }
