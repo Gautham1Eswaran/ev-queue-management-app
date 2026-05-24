@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/theme_provider.dart';
 import 'home_screen.dart';
 import '../history/history_screen.dart';
 import '../profile/profile_screen.dart';
@@ -21,6 +23,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
+
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
@@ -28,14 +32,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.grey[200]!, width: 1)),
+          border: Border(top: BorderSide(color: isDark ? Colors.white10 : Colors.grey[200]!, width: 1)),
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: (index) => setState(() => _selectedIndex = index),
           selectedItemColor: const Color(0xFF2DBE44),
-          unselectedItemColor: Colors.grey[400],
-          backgroundColor: Colors.white,
+          unselectedItemColor: isDark ? Colors.grey[600] : Colors.grey[400],
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
           elevation: 0,
           type: BottomNavigationBarType.fixed,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),

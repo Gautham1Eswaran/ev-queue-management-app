@@ -25,9 +25,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final isDark = context.watch<ThemeProvider>().isDarkMode;
 
     return Scaffold(
-      backgroundColor: isDark ? null : const Color(0xFFF8F9FA),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Dashboard', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
         backgroundColor: isDark ? Colors.transparent : Colors.white,
         elevation: 0,
         centerTitle: true,
@@ -46,13 +46,10 @@ class _HomeScreenState extends State<HomeScreen> {
               const QueueCard(),
               const SizedBox(height: 32),
               const EstimatorCard(),
-              const SizedBox(height: 120),
             ],
           ),
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: const DashboardActions(),
     );
   }
 
@@ -83,39 +80,22 @@ class ActiveChargingCard extends StatelessWidget {
     
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey[900] : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
       ),
-      child: session == null 
-        ? Center(child: Text('No currently charging', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 16)))
-        : Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(session.carModel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      Text('By ${session.userName}', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-                    ],
-                  ),
-                  Text(provider.liveRemainingTime, style: const TextStyle(color: Color(0xFF2DBE44), fontWeight: FontWeight.bold)),
-                ],
-              ),
-              const SizedBox(height: 20),
-              LinearProgressIndicator(
-                value: provider.liveProgress,
-                backgroundColor: isDark ? Colors.grey[800] : Colors.grey[100],
-                color: const Color(0xFF2DBE44),
-                minHeight: 8,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ],
+      child: Center(
+        child: Text(
+          session == null ? 'No currently charging' : 'Charging: ${session.carModel}',
+          style: TextStyle(
+            color: session == null ? (isDark ? Colors.grey[400] : Colors.grey[600]) : (isDark ? Colors.white : Colors.black),
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
           ),
+        ),
+      ),
     );
   }
 }
@@ -131,79 +111,21 @@ class QueueCard extends StatelessWidget {
     
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey[900] : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
       ),
-      child: queue.isEmpty 
-        ? Center(child: Text('Free to go', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 16)))
-        : Column(
-            children: queue.map((entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  CircleAvatar(radius: 12, backgroundColor: const Color(0xFF2DBE44).withAlpha(40), child: Text('${entry.position}', style: const TextStyle(fontSize: 10, color: Color(0xFF2DBE44)))),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text(entry.userName, style: const TextStyle(fontWeight: FontWeight.w500))),
-                  Text('~${entry.estimatedWaitMinutes}m', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                ],
-              ),
-            )).toList(),
+      child: Center(
+        child: Text(
+          queue.isEmpty ? 'Free to go' : '${queue.length} in queue',
+          style: TextStyle(
+            color: queue.isEmpty ? (isDark ? Colors.grey[400] : Colors.grey[600]) : (isDark ? Colors.white : Colors.black),
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
           ),
-    );
-  }
-}
-
-class DashboardActions extends StatelessWidget {
-  const DashboardActions({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
-    final isCharging = provider.activeSession != null;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Expanded(
-            child: SizedBox(
-              height: 56,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  if (isCharging) {
-                    provider.stopCharging();
-                  } else {
-                    provider.startCharging();
-                  }
-                },
-                icon: Icon(isCharging ? Icons.stop_rounded : Icons.bolt_rounded),
-                label: Text(isCharging ? 'Stop Charging' : 'Start Charging', style: const TextStyle(fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isCharging ? Colors.redAccent : const Color(0xFF2DBE44),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            height: 56,
-            child: OutlinedButton.icon(
-              onPressed: () => provider.toggleQueue(),
-              icon: Icon(provider.userInQueue ? Icons.exit_to_app : Icons.people_outline),
-              label: Text(provider.userInQueue ? 'Leave' : 'Join Queue'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: provider.userInQueue ? Colors.orange : const Color(0xFF2DBE44),
-                side: BorderSide(color: provider.userInQueue ? Colors.orange : const Color(0xFF2DBE44)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -244,7 +166,7 @@ class _EstimatorCardState extends State<EstimatorCard> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey[900] : Colors.white,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
       ),
@@ -369,7 +291,7 @@ class _EstimatorCardState extends State<EstimatorCard> {
           style: TextStyle(color: isDark ? Colors.white : Colors.black),
           decoration: InputDecoration(
             filled: true,
-            fillColor: isDark ? Colors.grey[800] : const Color(0xFFF1F3F5),
+            fillColor: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF1F3F5),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),

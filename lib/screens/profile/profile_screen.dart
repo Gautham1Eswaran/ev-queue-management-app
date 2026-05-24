@@ -23,9 +23,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     final user = context.read<AuthProvider>().user;
-    _nameController = TextEditingController(text: user?.username ?? 'gautham');
-    _carController = TextEditingController(text: user?.carModel ?? 'Tesla');
-    _slotController = TextEditingController(text: user?.parkingSlot ?? 'B2');
+    _nameController = TextEditingController(text: user?.username ?? '');
+    _carController = TextEditingController(text: user?.carModel ?? '');
+    _slotController = TextEditingController(text: user?.parkingSlot ?? '');
   }
 
   @override

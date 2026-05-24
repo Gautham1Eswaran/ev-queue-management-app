@@ -10,9 +10,10 @@ class HomeProvider with ChangeNotifier {
   ChargingSession? _activeSession;
   List<QueueEntry> _queue = [];
   bool _isLoading = false;
-  Timer? _dataTimer;
-  Timer? _progressTimer;
+  Timer? _pollingTimer;
+  Timer? _liveTimer;
 
+  // Live Computed Values
   double _liveProgress = 0.0;
   String _liveRemainingTime = '';
   bool _userInQueue = false;
@@ -24,56 +25,61 @@ class HomeProvider with ChangeNotifier {
   String get liveRemainingTime => _liveRemainingTime;
   bool get userInQueue => _userInQueue;
 
+  // Logic: isChargingAvailable = (no one charging && queue is empty)
+  bool get isChargingAvailable => _activeSession == null && _queue.isEmpty;
+
   void startPolling() {
     fetchData();
-    _dataTimer?.cancel();
-    _dataTimer = Timer.periodic(const Duration(seconds: 30), (_) => fetchData());
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) => fetchData());
     
-    _progressTimer?.cancel();
-    _progressTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateLiveProgress());
+    _liveTimer?.cancel();
+    _liveTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateLiveState());
   }
 
   void stopPolling() {
-    _dataTimer?.cancel();
-    _progressTimer?.cancel();
+    _pollingTimer?.cancel();
+    _liveTimer?.cancel();
   }
 
   Future<void> fetchData() async {
     _isLoading = true;
     _activeSession = await _apiService.getActiveSession();
     _queue = await _apiService.getQueueStatus();
-    _userInQueue = _queue.isNotEmpty; 
     _isLoading = false;
+    _updateQueueWaitTimes();
     notifyListeners();
   }
 
-  void _updateLiveProgress() {
+  void _updateLiveState() {
     if (_activeSession == null) return;
 
     final now = DateTime.now();
     final startTime = _activeSession!.startTime;
-    final totalTimeHours = _calculateChargingTime(
-      _activeSession!.batteryCapacity, 
-      _activeSession!.currentCharge, 
-      _activeSession!.desiredCharge, 
-      _activeSession!.chargerPower
-    );
+    
+    // logic from calculateChargingTime(data)
+    final totalEnergyNeeded = _activeSession!.batteryCapacity * (_activeSession!.desiredCharge - _activeSession!.currentCharge) / 100;
+    final totalTimeHours = totalEnergyNeeded / _activeSession!.chargerPower;
 
+    // logic from calculateCurrentCharge(session)
     final elapsedHours = now.difference(startTime).inMilliseconds / 3600000;
     final chargeProgress = (elapsedHours / totalTimeHours) * (_activeSession!.desiredCharge - _activeSession!.currentCharge);
-    
     final currentCharge = min(_activeSession!.currentCharge + chargeProgress, _activeSession!.desiredCharge);
     
+    // Update progress bar (0.0 to 1.0)
     final totalRange = _activeSession!.desiredCharge - _activeSession!.currentCharge;
-    final currentRange = currentCharge - _activeSession!.currentCharge;
-    _liveProgress = totalRange > 0 ? (currentRange / totalRange).clamp(0.0, 1.0) : 1.0;
+    _liveProgress = totalRange > 0 ? ((currentCharge - _activeSession!.currentCharge) / totalRange).clamp(0.0, 1.0) : 1.0;
 
+    // logic from calculateRemainingTime
     final remainingCharge = _activeSession!.desiredCharge - currentCharge;
     if (remainingCharge <= 0) {
       _liveRemainingTime = 'Done';
+      if (now.isAfter(_activeSession!.estimatedEndTime!)) {
+        stopCharging(); // auto-end when finished
+      }
     } else {
       final remainingEnergy = (_activeSession!.batteryCapacity * remainingCharge) / 100;
-      final remainingHours = remainingEnergy / (_activeSession!.chargerPower * 0.85);
+      final remainingHours = remainingEnergy / _activeSession!.chargerPower;
       final h = remainingHours.toInt();
       final m = ((remainingHours - h) * 60).toInt();
       _liveRemainingTime = h > 0 ? '${h}h ${m}m' : '${m}m';
@@ -82,30 +88,52 @@ class HomeProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  double _calculateChargingTime(double battery, double current, double desired, double power) {
-    final energyNeeded = battery * (desired - current) / 100;
-    return energyNeeded / (power * 0.85);
+  // logic from useQueueManager -> updateQueueTimes
+  void _updateQueueWaitTimes() {
+    if (_queue.isEmpty) return;
+    
+    final now = DateTime.now();
+    DateTime nextAvailableTime = _activeSession?.estimatedEndTime ?? now;
+
+    _queue = _queue.asMap().entries.map((entry) {
+      final i = entry.key;
+      final e = entry.value;
+      
+      final baseWaitMinutes = nextAvailableTime.difference(now).inMinutes;
+      final queueWaitMinutes = i * 120; // 2 hours per person ahead
+      
+      return e.copyWith(
+        position: i + 1,
+        estimatedWaitMinutes: max(0, baseWaitMinutes + queueWaitMinutes),
+      );
+    }).toList();
   }
 
   Future<Map<String, dynamic>> getEstimate(Map<String, dynamic> data) async {
     return await _apiService.post('/api/sessions/estimate', data);
   }
 
+  // logic from handleStartCharging
   Future<void> startCharging() async {
-    if (_activeSession != null) return;
-    await _apiService.startCharging();
-    await fetchData();
+    if (isChargingAvailable) {
+      await _apiService.startCharging();
+      await fetchData();
+    } else {
+      throw Exception('Charger Unavailable');
+    }
   }
 
+  // logic from handleStopCharging
   Future<void> stopCharging() async {
     _activeSession = null;
     notifyListeners();
-    await fetchData();
+    await fetchData(); // Immediately update queue times
   }
 
+  // logic from handleJoinQueue
   Future<void> toggleQueue() async {
     if (_userInQueue) {
-      // Logic for leaving queue
+      // leaveQueue() logic
     } else {
       await _apiService.joinQueue();
     }

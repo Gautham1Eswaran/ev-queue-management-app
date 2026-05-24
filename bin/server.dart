@@ -111,41 +111,13 @@ Future<Response> _loginHandler(Request request) async {
 
 Future<Response> _activeSessionHandler(Request request) async {
   return Response.ok(jsonEncode({
-    'session': {
-      'id': '1',
-      'userId': '123',
-      'userName': 'David Evans',
-      'carModel': 'Rivian R1T',
-      'startTime': DateTime.now().subtract(Duration(minutes: 45)).toIso8601String(),
-      'estimatedEndTime': DateTime.now().add(Duration(minutes: 38)).toIso8601String(),
-      'currentCharge': 35.5,
-      'desiredCharge': 80.0,
-      'batteryCapacity': 135.0,
-      'chargerPower': 11.0,
-    }
+    'session': null
   }), headers: {'Content-Type': 'application/json'});
 }
 
 Future<Response> _queueStatusHandler(Request request) async {
   return Response.ok(jsonEncode({
-    'queue': [
-      {
-        'userId': 'q1',
-        'userName': 'Eva Green',
-        'carModel': 'Hyundai Ioniq 5',
-        'position': 1,
-        'joinedAt': DateTime.now().subtract(Duration(minutes: 20)).toIso8601String(),
-        'estimatedWaitMinutes': 30,
-      },
-      {
-        'userId': 'q2',
-        'userName': 'James Miller',
-        'carModel': 'Tesla Model 3',
-        'position': 2,
-        'joinedAt': DateTime.now().subtract(Duration(minutes: 5)).toIso8601String(),
-        'estimatedWaitMinutes': 65,
-      }
-    ]
+    'queue': []
   }), headers: {'Content-Type': 'application/json'});
 }
 
@@ -215,29 +187,7 @@ final _router = Router()
   ..post('/api/user/update', _updateUserHandler);
 
 Future<Response> _historyHandler(Request request) async {
-  return Response.ok(jsonEncode([
-    {
-      'id': 'h1',
-      'startTime': DateTime.now().subtract(Duration(days: 1, hours: 2)).toIso8601String(),
-      'endTime': DateTime.now().subtract(Duration(days: 1)).toIso8601String(),
-      'energyConsumedKWh': 45.5,
-      'cost': 318.5,
-    },
-    {
-      'id': 'h2',
-      'startTime': DateTime.now().subtract(Duration(days: 3, hours: 4)).toIso8601String(),
-      'endTime': DateTime.now().subtract(Duration(days: 3)).toIso8601String(),
-      'energyConsumedKWh': 30.2,
-      'cost': 211.4,
-    },
-    {
-      'id': 'h3',
-      'startTime': DateTime.now().subtract(Duration(days: 35, hours: 1)).toIso8601String(),
-      'endTime': DateTime.now().subtract(Duration(days: 35)).toIso8601String(),
-      'energyConsumedKWh': 55.0,
-      'cost': 385.0,
-    }
-  ]), headers: {'Content-Type': 'application/json'});
+  return Response.ok(jsonEncode([]), headers: {'Content-Type': 'application/json'});
 }
 
 void main(List<String> args) async {

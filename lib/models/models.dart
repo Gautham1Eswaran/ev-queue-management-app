@@ -88,6 +88,20 @@ class QueueEntry {
     required this.estimatedWaitMinutes,
   });
 
+  QueueEntry copyWith({
+    int? position,
+    int? estimatedWaitMinutes,
+  }) {
+    return QueueEntry(
+      userId: userId,
+      userName: userName,
+      carModel: carModel,
+      position: position ?? this.position,
+      joinedAt: joinedAt,
+      estimatedWaitMinutes: estimatedWaitMinutes ?? this.estimatedWaitMinutes,
+    );
+  }
+
   factory QueueEntry.fromJson(Map<String, dynamic> json) {
     return QueueEntry(
       userId: json['userId'] ?? '',

@@ -38,32 +38,32 @@ class _HistoryScreenState extends State<HistoryScreen> {
             const SizedBox(height: 20),
             SizedBox(
               height: 200,
-              child: BarChart(
+              child: _history.isEmpty 
+                ? const Center(child: Text('No data available'))
+                : BarChart(
                 BarChartData(
                   gridData: const FlGridData(show: false),
                   borderData: FlBorderData(show: false),
-                  barGroups: [
-                    BarChartGroupData(
-                      x: 0,
+                  barGroups: _history.asMap().entries.map((entry) {
+                    return BarChartGroupData(
+                      x: entry.key,
                       barRods: [
-                        BarChartRodData(toY: 55, color: Colors.grey, width: 16),
+                        BarChartRodData(
+                          toY: (entry.value['energyConsumedKWh'] as num).toDouble(),
+                          color: Colors.green,
+                          width: 16,
+                        ),
                       ],
-                    ),
-                    BarChartGroupData(
-                      x: 1,
-                      barRods: [
-                        BarChartRodData(toY: 75.7, color: Colors.green, width: 16),
-                      ],
-                    ),
-                  ],
+                    );
+                  }).toList(),
                   titlesData: FlTitlesData(
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
                         getTitlesWidget: (value, meta) {
-                          const titles = ['April', 'May'];
-                          if (value.toInt() >= 0 && value.toInt() < titles.length) {
-                            return Text(titles[value.toInt()]);
+                          if (value.toInt() >= 0 && value.toInt() < _history.length) {
+                            final date = DateTime.parse(_history[value.toInt()]['startTime']);
+                            return Text(DateFormat('MMM d').format(date), style: const TextStyle(fontSize: 10));
                           }
                           return const Text('');
                         },
