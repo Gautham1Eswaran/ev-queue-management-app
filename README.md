@@ -25,9 +25,11 @@ EV Charge Park is designed to streamline the electric vehicle charging experienc
 
 ## 📸 Screenshots
 
-| Dashboard (Light) | Dashboard (Dark) | Profile Settings |
+| Login | Dashboard | Profile Settings |
 | :---: | :---: | :---: |
-| *Place screenshot here* | *Place screenshot here* | *Place screenshot here* |
+| *<img width="456" height="877" alt="Screenshot_26-5-2026_15910_localhost" src="https://github.com/user-attachments/assets/641538cb-9195-4d3f-a68e-fd6bec6c3ccb" />
+* | *<img width="456" height="877" alt="Screenshot_26-5-2026_15952_localhost" src="https://github.com/user-attachments/assets/5e0d3027-fd24-4f8c-b66a-48d491007a74" />* | *<img width="456" height="877" alt="Screenshot_26-5-2026_15103_localhost" src="https://github.com/user-attachments/assets/aff08f4e-b1f8-4bed-9413-7fae2b3920e3" />
+* |
 
 *(Add your images to the `/screenshots` folder and update these links)*
 
