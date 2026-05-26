@@ -90,11 +90,12 @@ Future<Response> _loginHandler(Request request) async {
       );
     }
 
+    final userId = user['_id'] as ObjectId;
     return Response.ok(
       jsonEncode({
         'message': 'Login successful',
-        'token': 'mock_jwt_token_${user['_id']}',
-        'id': user['_id'].toString(),
+        'token': 'mock_jwt_token_${userId.toHexString()}',
+        'id': userId.toHexString(),
         'username': user['username'],
         'carModel': user['carModel'],
         'parkingSlot': user['parkingSlot'],
@@ -110,15 +111,25 @@ Future<Response> _loginHandler(Request request) async {
 }
 
 Future<Response> _activeSessionHandler(Request request) async {
-  return Response.ok(jsonEncode({
-    'session': null
-  }), headers: {'Content-Type': 'application/json'});
+  try {
+    final session = await Database.sessions.findOne();
+    return Response.ok(jsonEncode({
+      'session': session
+    }), headers: {'Content-Type': 'application/json'});
+  } catch (e) {
+    return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+  }
 }
 
 Future<Response> _queueStatusHandler(Request request) async {
-  return Response.ok(jsonEncode({
-    'queue': []
-  }), headers: {'Content-Type': 'application/json'});
+  try {
+    final queue = await Database.queue.find().toList();
+    return Response.ok(jsonEncode({
+      'queue': queue
+    }), headers: {'Content-Type': 'application/json'});
+  } catch (e) {
+    return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+  }
 }
 
 Future<Response> _estimateHandler(Request request) async {
@@ -142,8 +153,26 @@ Future<Response> _estimateHandler(Request request) async {
 
 Future<Response> _startChargingHandler(Request request) async {
   try {
+    final payload = jsonDecode(await request.readAsString());
+    
+    final session = {
+      'id': 'session_${DateTime.now().millisecondsSinceEpoch}',
+      'userId': 'user_1',
+      'userName': 'Gautham',
+      'carModel': 'Tesla Model 3',
+      'startTime': DateTime.now().toIso8601String(),
+      'estimatedEndTime': DateTime.now().add(const Duration(hours: 2)).toIso8601String(),
+      'currentCharge': (payload['currentCharge'] as num).toDouble(),
+      'desiredCharge': (payload['desiredCharge'] as num).toDouble(),
+      'batteryCapacity': (payload['batteryCapacity'] as num).toDouble(),
+      'chargerPower': (payload['chargerPower'] as num).toDouble(),
+    };
+    
+    await Database.sessions.remove({}); // Clear old session
+    await Database.sessions.insertOne(session);
+    
     return Response.ok(
-      jsonEncode({'message': 'Charging started successfully'}),
+      jsonEncode({'message': 'Charging started successfully', 'session': session}),
       headers: {'Content-Type': 'application/json'},
     );
   } catch (e) {
@@ -164,9 +193,58 @@ Future<Response> _joinQueueHandler(Request request) async {
 
 Future<Response> _updateUserHandler(Request request) async {
   try {
-    await request.readAsString();
+    final authHeader = request.headers['Authorization'];
+    if (authHeader == null || !authHeader.startsWith('Bearer ')) {
+      return Response.forbidden(jsonEncode({'error': 'Not authorized'}));
+    }
+
+    final token = authHeader.substring(7);
+    var userIdStr = token.replaceFirst('mock_jwt_token_', '');
+    
+    // Handle case where ID might still be wrapped in ObjectId("...")
+    if (userIdStr.contains('"')) {
+      userIdStr = userIdStr.split('"')[1];
+    }
+
+    final userId = ObjectId.fromHexString(userIdStr);
+
+    final payload = jsonDecode(await request.readAsString());
+    final String? newUsername = payload['username'];
+    final String? newCarModel = payload['carModel'];
+    final String? newParkingSlot = payload['parkingSlot'];
+
+    // If username is being changed, check for uniqueness
+    if (newUsername != null) {
+      final existingUser = await Database.users.findOne(where.eq('username', newUsername));
+      if (existingUser != null && existingUser['_id'] != userId) {
+        return Response.badRequest(
+          body: jsonEncode({'error': 'Username already exists'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+    }
+
+    var modifier = modify;
+    if (newUsername != null) modifier = modifier.set('username', newUsername);
+    if (newCarModel != null) modifier = modifier.set('carModel', newCarModel);
+    if (newParkingSlot != null) modifier = modifier.set('parkingSlot', newParkingSlot);
+
+    await Database.users.updateOne(where.id(userId), modifier);
+
     return Response.ok(
       jsonEncode({'message': 'Profile updated successfully'}),
+      headers: {'Content-Type': 'application/json'},
+    );
+  } catch (e) {
+    return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+  }
+}
+
+Future<Response> _stopChargingHandler(Request request) async {
+  try {
+    await Database.sessions.remove({});
+    return Response.ok(
+      jsonEncode({'message': 'Charging stopped successfully'}),
       headers: {'Content-Type': 'application/json'},
     );
   } catch (e) {
@@ -183,6 +261,7 @@ final _router = Router()
   ..post('/api/sessions/estimate', _estimateHandler)
   ..get('/api/sessions/history', _historyHandler)
   ..post('/api/sessions/start', _startChargingHandler)
+  ..post('/api/sessions/stop', _stopChargingHandler)
   ..post('/api/queue/join', _joinQueueHandler)
   ..post('/api/user/update', _updateUserHandler);
 

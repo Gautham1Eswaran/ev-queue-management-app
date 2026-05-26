@@ -46,6 +46,9 @@ class _HomeScreenState extends State<HomeScreen> {
               const QueueCard(),
               const SizedBox(height: 32),
               const EstimatorCard(),
+              const SizedBox(height: 32),
+              const StartChargingButton(),
+              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -139,22 +142,30 @@ class EstimatorCard extends StatefulWidget {
 }
 
 class _EstimatorCardState extends State<EstimatorCard> {
-  final _batteryController = TextEditingController(text: '75');
-  final _chargerController = TextEditingController(text: '7.4');
-  final _costController = TextEditingController(text: '7');
-  double _currentCharge = 20;
-  double _desiredCharge = 80;
+  final _batteryController = TextEditingController();
+  final _chargerController = TextEditingController();
+  final _costController = TextEditingController();
   
   Map<String, dynamic>? _results;
 
+  @override
+  void initState() {
+    super.initState();
+    final provider = context.read<HomeProvider>();
+    _batteryController.text = provider.batteryCapacity.toString();
+    _chargerController.text = provider.chargerPower.toString();
+    _costController.text = provider.costPerKwh.toString();
+  }
+
   void _calculate() async {
-    final res = await context.read<HomeProvider>().getEstimate({
-      'batteryCapacity': double.tryParse(_batteryController.text) ?? 75,
-      'currentCharge': _currentCharge,
-      'desiredCharge': _desiredCharge,
-      'chargerPower': double.tryParse(_chargerController.text) ?? 7.4,
-      'costPerKwh': double.tryParse(_costController.text) ?? 7,
-    });
+    final provider = context.read<HomeProvider>();
+    provider.updateEstimator(
+      battery: double.tryParse(_batteryController.text),
+      power: double.tryParse(_chargerController.text),
+      cost: double.tryParse(_costController.text),
+    );
+    
+    final res = await provider.getEstimate();
     setState(() {
       _results = res;
     });
@@ -163,6 +174,8 @@ class _EstimatorCardState extends State<EstimatorCard> {
   @override
   Widget build(BuildContext context) {
     final isDark = context.watch<ThemeProvider>().isDarkMode;
+    final provider = context.watch<HomeProvider>();
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -194,24 +207,28 @@ class _EstimatorCardState extends State<EstimatorCard> {
             ],
           ),
           const SizedBox(height: 24),
-          _buildSliderLabel('Current Charge', _currentCharge.toInt(), isDark),
+          _buildSliderLabel('Current Charge', provider.currentCharge.toInt(), isDark),
           Slider(
-            value: _currentCharge,
-            onChanged: (v) => setState(() {
-              _currentCharge = v;
-              if (_desiredCharge < _currentCharge) _desiredCharge = _currentCharge;
-            }),
+            value: provider.currentCharge,
+            onChanged: (v) {
+              provider.updateEstimator(current: v);
+              if (provider.desiredCharge < provider.currentCharge) {
+                provider.updateEstimator(desired: provider.currentCharge);
+              }
+            },
             min: 0, max: 100,
             activeColor: const Color(0xFF2DBE44),
           ),
           const SizedBox(height: 12),
-          _buildSliderLabel('Desired Charge', _desiredCharge.toInt(), isDark),
+          _buildSliderLabel('Desired Charge', provider.desiredCharge.toInt(), isDark),
           Slider(
-            value: _desiredCharge,
-            onChanged: (v) => setState(() {
-              _desiredCharge = v;
-              if (_currentCharge > _desiredCharge) _currentCharge = _desiredCharge;
-            }),
+            value: provider.desiredCharge,
+            onChanged: (v) {
+              provider.updateEstimator(desired: v);
+              if (provider.currentCharge > provider.desiredCharge) {
+                provider.updateEstimator(current: provider.desiredCharge);
+              }
+            },
             min: 0, max: 100,
             activeColor: const Color(0xFF2DBE44),
           ),
@@ -289,6 +306,13 @@ class _EstimatorCardState extends State<EstimatorCard> {
           controller: controller,
           keyboardType: TextInputType.number,
           style: TextStyle(color: isDark ? Colors.white : Colors.black),
+          onChanged: (val) {
+             final provider = context.read<HomeProvider>();
+             final d = double.tryParse(val);
+             if (label.contains('Battery')) provider.updateEstimator(battery: d);
+             if (label.contains('Charger')) provider.updateEstimator(power: d);
+             if (label.contains('Cost')) provider.updateEstimator(cost: d);
+          },
           decoration: InputDecoration(
             filled: true,
             fillColor: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF1F3F5),
@@ -304,6 +328,50 @@ class _EstimatorCardState extends State<EstimatorCard> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text('$label: $value%', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black)),
+    );
+  }
+}
+
+class StartChargingButton extends StatelessWidget {
+  const StartChargingButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final homeProvider = context.watch<HomeProvider>();
+    final isCharging = homeProvider.activeSession != null;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          try {
+            if (isCharging) {
+              await homeProvider.stopCharging();
+            } else {
+              await homeProvider.startCharging();
+            }
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(e.toString().replaceAll('Exception: ', '')),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+        icon: Icon(isCharging ? Icons.stop_rounded : Icons.bolt_rounded, size: 20),
+        label: Text(
+          isCharging ? 'Stop Charging' : 'Start Charging',
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, letterSpacing: 0.5),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isCharging ? Colors.redAccent : const Color(0xFF2DBE44),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
     );
   }
 }
